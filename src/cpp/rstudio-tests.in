@@ -31,6 +31,7 @@ error () {
 checkRUnitTestFailure() {
    FAILURES=$(cat "@CMAKE_CURRENT_BINARY_DIR@/testthat-failures.log")
    if [ "${FAILURES}" != "0" ]; then
+      echo "DIAGNOSTICS: checkRUnitTestFailure flagging a failure: FAILURES=${FAILURES}"
       UNIT_TEST_FAILURE=true
    fi
 }
@@ -124,6 +125,7 @@ runWatchdogProcess() {
       sudo kill -9 "${PID}"
       UNIT_TEST_FAILURE=true
    elif [ "${RETCODE}" != "0" ]; then
+      echo "DIAGNOSTICS: runWatchDogProcess flagging a failure: RETCODE=${RETCODE}"
       UNIT_TEST_FAILURE=true
    fi
 
