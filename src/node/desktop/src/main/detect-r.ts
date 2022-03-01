@@ -26,6 +26,9 @@ import { Err, success, safeError } from '../core/err';
 import { ChooseRModalWindow } from '..//ui/widgets/choose-r';
 import { createStandaloneErrorDialog } from './utils';
 import i18next from 'i18next';
+import * as aks from 'asynckeystate';
+import Store from 'electron-store';
+import { kDesktopOptionDefaults } from './desktop-options';
 
 let kLdLibraryPathVariable: string;
 if (process.platform === 'darwin') {
@@ -56,10 +59,25 @@ function executeCommand(command: string): Expected<string> {
 }
 
 export async function promptUserForR(): Promise<Expected<string | null>> {
-  // nothing to do if RSTUDIO_WHICH_R is set
-  const rstudioWhichR = getenv('RSTUDIO_WHICH_R');
-  if (rstudioWhichR) {
-    return ok(rstudioWhichR);
+  const storeConfig = new Store({ defaults: kDesktopOptionDefaults });
+  const rstudioPathKey = 'rstudioPath';
+
+  const isCtrlKeyBeingPressed = aks.getAsyncKeyState(0x11) as boolean;
+
+  if (!isCtrlKeyBeingPressed) {
+    // nothing to do if RSTUDIO_WHICH_R is set
+    const rstudioWhichR = getenv('RSTUDIO_WHICH_R');
+    if (rstudioWhichR) {
+      return ok(rstudioWhichR);
+    }
+
+    const rstudioSavedPath = storeConfig.get(rstudioPathKey);
+
+    if (rstudioSavedPath != undefined) {
+      const path = '' + rstudioSavedPath;
+
+      return ok(path);
+    }
   }
 
   // discover available R installations
@@ -80,6 +98,7 @@ export async function promptUserForR(): Promise<Expected<string | null>> {
     return ok(null);
   }
 
+  storeConfig.set(rstudioPathKey, path);
   // set RSTUDIO_WHICH_R to signal which version of R to be used
   setenv('RSTUDIO_WHICH_R', path);
   return ok(path);
