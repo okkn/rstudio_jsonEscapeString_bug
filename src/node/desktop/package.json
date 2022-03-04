@@ -18,7 +18,8 @@
     "testint": "mocha -c --config ./test/int/mocharc.json",
     "testintwip": "mocha -c -g WIP  --config ./test/int/mocharc.json",
     "testwip": "electron-mocha -c -g WIP --config ./test/unit/mocharc.json",
-    "format": "./scripts/create-prettier-ignore-file.sh && npx prettier --write . --ignore-path .prettier_and_git_ignores"
+    "format": "./scripts/create-prettier-ignore-file.sh && npx prettier --write . --ignore-path .prettier_and_git_ignores",
+    "postinstall": "npx electron-rebuild"
   },
   "config": {
     "forge": "./forge.config.js"
@@ -46,6 +47,7 @@
     "css-loader": "6.5.1",
     "electron": "17.1.0",
     "electron-mocha": "10.1.0",
+    "electron-rebuild": "^3.2.7",
     "eslint": "^7.12.1",
     "eslint-config-prettier": "8.3.0",
     "eslint-config-standard": "16.0.3",
