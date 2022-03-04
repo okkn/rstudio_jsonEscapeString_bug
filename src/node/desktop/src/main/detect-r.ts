@@ -81,31 +81,31 @@ export async function promptUserForR(): Promise<Expected<string | null>> {
         return ok(path);
       }
     }
-    return err(new Error('This window can only be opened on Windows'));
-  }
 
-  // discover available R installations
-  const rInstalls = findRInstallationsWin32();
-  if (rInstalls.length === 0) {
-    return err();
-  }
+    // discover available R installations
+    const rInstalls = findRInstallationsWin32();
+    if (rInstalls.length === 0) {
+      return err();
+    }
 
-  // ask the user what version of R they'd like to use
-  const dialog = new ChooseRModalWindow(rInstalls);
-  const [path, error] = await dialog.showModal();
-  if (error) {
-    return err(error);
-  }
+    // ask the user what version of R they'd like to use
+    const dialog = new ChooseRModalWindow(rInstalls);
+    const [path, error] = await dialog.showModal();
+    if (error) {
+      return err(error);
+    }
 
-  // if path is null, the operation was cancelled
-  if (path == null) {
-    return ok(null);
-  }
+    // if path is null, the operation was cancelled
+    if (path == null) {
+      return ok(null);
+    }
 
-  storeConfig.set(rstudioPathKey, path);
-  // set RSTUDIO_WHICH_R to signal which version of R to be used
-  setenv('RSTUDIO_WHICH_R', path);
-  return ok(path);
+    storeConfig.set(rstudioPathKey, path);
+    // set RSTUDIO_WHICH_R to signal which version of R to be used
+    setenv('RSTUDIO_WHICH_R', path);
+    return ok(path);
+  }
+  return err(new Error('This window can only be opened on Windows'));
 }
 
 /**
