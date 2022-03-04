@@ -91,7 +91,7 @@ export class DesktopBrowserWindow extends EventEmitter {
     this.options.autohideMenu = this.options.autohideMenu ?? false;
     this.options.allowExternalNavigate = this.options.allowExternalNavigate ?? false;
 
-    const apiKeys = [['--apiKeys=desktopInfo', ...(this.options.addApiKeys ?? [])].join('|')];
+    const apiKeys = [['--api-keys=desktopInfo', ...(this.options.addApiKeys ?? [])].join('|')];
 
     if (this.options.existingWindow) {
       this.window = this.options.existingWindow;
@@ -103,12 +103,12 @@ export class DesktopBrowserWindow extends EventEmitter {
         backgroundColor: '#fff',
         autoHideMenuBar: this.options.autohideMenu,
         webPreferences: {
-          nodeIntegration: false,
-          contextIsolation: true,
-          sandbox: false,
-          nativeWindowOpen: true,
           additionalArguments: apiKeys,
+          contextIsolation: true,
+          nativeWindowOpen: true,
+          nodeIntegration: false,
           preload: preload,
+          sandbox: true,
         },
         show: false,
         acceptFirstMouse: true,

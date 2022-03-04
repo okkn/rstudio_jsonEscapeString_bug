@@ -19,19 +19,18 @@ import { app, BrowserWindow, dialog, ipcMain, screen, shell, webContents, webFra
 import { IpcMainEvent, MessageBoxOptions, OpenDialogOptions, SaveDialogOptions } from 'electron/main';
 import EventEmitter from 'events';
 import i18next from 'i18next';
+import { getAvailableFontsSync, IQueryFontDescriptor } from 'node-system-fonts';
 import { FilePath } from '../core/file-path';
 import { logger } from '../core/logger';
 import { isCentOS } from '../core/system';
 import { resolveTemplateVar } from '../core/template-filter';
-import { userHomePath } from '../core/user';
+import desktop from '../native/desktop.node';
 import { appState } from './app-state';
 import { GwtWindow } from './gwt-window';
 import { MainWindow } from './main-window';
 import { openMinimalWindow } from './minimal-window';
 import { filterFromQFileDialogFilter, resolveAliasedPath } from './utils';
 import { activateWindow } from './window-utils';
-
-import desktop from '../native/desktop.node';
 
 export enum PendingQuit {
   PendingQuitNone,
@@ -58,6 +57,12 @@ export class GwtCallback extends EventEmitter {
     super();
     this.owners.add(mainWindow);
 
+    const fontDescriptors = [
+      ...new Map<string, IQueryFontDescriptor>(getAvailableFontsSync().map((fd) => [fd.family, fd])).values(),
+    ].sort((a, b) => a.family?.localeCompare(b.family ?? '') ?? 0);
+    const monospaceFonts = fontDescriptors.filter((fd) => fd.monospace).map((font) => font.family);
+    const proportionalFonts = fontDescriptors.filter((fd) => !fd.monospace).map((font) => font.family);
+
     ipcMain.on('desktop_browse_url', (event, url: string) => {
       // TODO: review if we need additional validation of URL
       void shell.openExternal(url);
@@ -76,10 +81,9 @@ export class GwtCallback extends EventEmitter {
       ) => {
         const openDialogOptions: OpenDialogOptions = {
           title: caption,
-          defaultPath: dir,
+          defaultPath: resolveAliasedPath(dir),
           buttonLabel: label,
         };
-
         openDialogOptions.properties = ['openFile'];
 
         // FileOpen dialog can't be both a file opener and a directory opener on Windows
@@ -116,11 +120,9 @@ export class GwtCallback extends EventEmitter {
         forceDefaultExtension: boolean,
         focusOwner: boolean,
       ) => {
-        const resolvedDir = FilePath.resolveAliasedPathSync(dir, userHomePath()).toString();
-
         const saveDialogOptions: SaveDialogOptions = {
           title: caption,
-          defaultPath: resolvedDir,
+          defaultPath: resolveAliasedPath(dir),
           buttonLabel: label,
         };
 
@@ -145,7 +147,7 @@ export class GwtCallback extends EventEmitter {
       async (event, caption: string, label: string, dir: string, focusOwner: boolean) => {
         const openDialogOptions: OpenDialogOptions = {
           title: caption,
-          defaultPath: dir,
+          defaultPath: resolveAliasedPath(dir),
           buttonLabel: label,
           properties: ['openDirectory', 'createDirectory', 'promptToCreate'],
         };
@@ -154,6 +156,7 @@ export class GwtCallback extends EventEmitter {
         if (focusOwner) {
           focusedWindow = this.getSender('desktop_open_minimal_window', event.processId, event.frameId).window;
         }
+
         if (focusedWindow) {
           return dialog.showOpenDialog(focusedWindow, openDialogOptions);
         } else {
@@ -292,6 +295,13 @@ export class GwtCallback extends EventEmitter {
     ipcMain.on(
       'desktop_open_minimal_window',
       (event: IpcMainEvent, name: string, url: string, width: number, height: number) => {
+        // handle chrome://gpu specially
+        if (url === 'chrome://gpu') {
+          const window = new BrowserWindow();
+          return window.loadURL('chrome://gpu');
+        }
+
+        // regular path for other windows
         const sender = this.getSender('desktop_open_minimal_window', event.processId, event.frameId);
         const minimalWindow = openMinimalWindow(sender, name, url, width, height);
         minimalWindow.window.once('ready-to-show', () => {
@@ -418,8 +428,9 @@ export class GwtCallback extends EventEmitter {
 
     ipcMain.on('desktop_open_project_in_new_window', (event, projectFilePath) => {
       if (!this.isRemoteDesktop) {
-        const args = [resolveAliasedPath(projectFilePath)];
-        this.mainWindow.launchRStudio(args);
+        this.mainWindow.launchRStudio({
+          projectFilePath: resolveAliasedPath(projectFilePath),
+        });
       } else {
         // start new Remote Desktop RStudio process with the session URL
         this.mainWindow.launchRemoteRStudioProject(projectFilePath);
@@ -428,8 +439,9 @@ export class GwtCallback extends EventEmitter {
 
     ipcMain.on('desktop_open_session_in_new_window', (event, workingDirectoryPath) => {
       if (!this.isRemoteDesktop) {
-        workingDirectoryPath = resolveAliasedPath(workingDirectoryPath);
-        this.mainWindow.launchRStudio([], workingDirectoryPath);
+        this.mainWindow.launchRStudio({
+          workingDirectory: resolveAliasedPath(workingDirectoryPath),
+        });
       } else {
         // start the new session on the currently connected server
         this.mainWindow.launchRemoteRStudio();
@@ -440,17 +452,54 @@ export class GwtCallback extends EventEmitter {
       GwtCallback.unimpl('desktop_open_terminal');
     });
 
-    ipcMain.handle('desktop_get_fixed_width_font_list', () => {
-      GwtCallback.unimpl('desktop_get_fixed_width_font_list');
-      return '';
+    ipcMain.on('desktop_get_fixed_width_font_list', (event) => {
+      event.returnValue = monospaceFonts.join('\n');
     });
 
-    ipcMain.handle('desktop_get_fixed_width_font', () => {
-      GwtCallback.unimpl('desktop_get_fixed_width_font');
-      return '';
+    ipcMain.on('desktop_get_fixed_width_font', (event) => {
+      // TODO: Read user preference for font
+
+      let defaultFonts: string[];
+      if (process.platform === 'darwin') {
+        defaultFonts = ['Menlo', 'Monaco'];
+      } else if (process.platform === 'win32') {
+        defaultFonts = ['Lucida Console', 'Consolas'];
+      } else {
+        defaultFonts = ['Ubuntu Mono', 'Droid Sans Mono', 'DejaVu Sans Mono', 'Monospace'];
+      }
+
+      let fixedWidthFont = 'monospace';
+      for (const font of defaultFonts) {
+        if (monospaceFonts.includes(font)) {
+          fixedWidthFont = font;
+          break;
+        }
+      }
+      event.returnValue = `"${fixedWidthFont}"`;
+    });
+
+    ipcMain.on('desktop_get_proportional_font', (event) => {
+      let defaultFonts: string[];
+      if (process.platform === 'darwin') {
+        defaultFonts = ['Lucida Grande', 'Lucida Sans', 'DejaVu Sans', 'Segoe UI', 'Verdana', 'Helvetica'];
+      } else if (process.platform === 'win32') {
+        defaultFonts = ['Segoe UI', 'Verdana', 'Lucida Sans', 'DejaVu Sans', 'Lucida Grande', 'Helvetica'];
+      } else {
+        defaultFonts = ['Lucida Sans', 'DejaVu Sans', 'Lucida Grande', 'Segoe UI', 'Verdana', 'Helvetica'];
+      }
+
+      let proportionalFont = defaultFonts[0];
+      for (const font of defaultFonts) {
+        if (proportionalFonts.includes(font)) {
+          proportionalFont = font;
+          break;
+        }
+      }
+      event.returnValue = `"${proportionalFont}"`;
     });
 
     ipcMain.on('desktop_set_fixed_width_font', (event, font) => {
+      // TODO: Write font selection to preferences
       GwtCallback.unimpl('desktop_set_fixed_width_font');
     });
 
