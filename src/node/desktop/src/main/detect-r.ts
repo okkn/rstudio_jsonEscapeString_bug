@@ -26,7 +26,6 @@ import { Err, success, safeError } from '../core/err';
 import { ChooseRModalWindow } from '..//ui/widgets/choose-r';
 import { createStandaloneErrorDialog } from './utils';
 import i18next from 'i18next';
-import * as aks from 'asynckeystate';
 import Store from 'electron-store';
 import { kDesktopOptionDefaults } from './desktop-options';
 
@@ -59,25 +58,30 @@ function executeCommand(command: string): Expected<string> {
 }
 
 export async function promptUserForR(): Promise<Expected<string | null>> {
-  const storeConfig = new Store({ defaults: kDesktopOptionDefaults });
-  const rstudioPathKey = 'rstudioPath';
+  if (process.platform === 'win32') {
+    const aks = await import('asynckeystate');
 
-  const isCtrlKeyBeingPressed = aks.getAsyncKeyState(0x11) as boolean;
+    const storeConfig = new Store({ defaults: kDesktopOptionDefaults });
+    const rstudioPathKey = 'rstudioPath';
 
-  if (!isCtrlKeyBeingPressed) {
-    // nothing to do if RSTUDIO_WHICH_R is set
-    const rstudioWhichR = getenv('RSTUDIO_WHICH_R');
-    if (rstudioWhichR) {
-      return ok(rstudioWhichR);
+    const isCtrlKeyBeingPressed = aks.getAsyncKeyState(0x11) as boolean;
+
+    if (!isCtrlKeyBeingPressed) {
+      // nothing to do if RSTUDIO_WHICH_R is set
+      const rstudioWhichR = getenv('RSTUDIO_WHICH_R');
+      if (rstudioWhichR) {
+        return ok(rstudioWhichR);
+      }
+
+      const rstudioSavedPath = storeConfig.get(rstudioPathKey);
+
+      if (rstudioSavedPath != undefined) {
+        const path = '' + rstudioSavedPath;
+
+        return ok(path);
+      }
     }
-
-    const rstudioSavedPath = storeConfig.get(rstudioPathKey);
-
-    if (rstudioSavedPath != undefined) {
-      const path = '' + rstudioSavedPath;
-
-      return ok(path);
-    }
+    return err(new Error('This window can only be opened on Windows'));
   }
 
   // discover available R installations
