@@ -21,6 +21,7 @@ const config = {
   ],
 
   plugins: [
+    ['@electron-forge/plugin-auto-unpack-natives'],
     [
       '@electron-forge/plugin-webpack',
       {
@@ -63,10 +64,54 @@ const config = {
       },
     ],
   ],
-
   packagerConfig: {
     icon: './resources/icons/RStudio',
+    asar: { unpack: true }
   },
+  hooks: {
+    generateAssets: async () => {
+      console.log('test55 generate assets');
+      const fs = require('fs');
+      const path = require('path');
+
+      var copyRecursiveSync = async (src, dest) => {
+        console.log('test55 copyrecursive sync ',src,dest);
+        
+        var exists = fs.existsSync(src);
+        console.log('test55 copyrecursive sync 1');
+        var stats = exists && fs.statSync(src);
+        console.log('test55 copyrecursive sync 2');
+        var isDirectory = exists && stats.isDirectory();
+        console.log('test55 copyrecursive sync 3');
+        if (isDirectory) {
+          try {
+            console.log('test55 create folder');
+
+            await fs.mkdir(dest);
+          } catch (err) {
+            console.log('test55 create folder err');
+
+          }
+          fs.readdirSync(src).forEach(async (childItemName) => {
+            await copyRecursiveSync(path.join(src, childItemName),
+              path.join(dest, childItemName));
+          });
+        } else {
+          try {
+            console.log('test55 copy file');
+            await fs.copyFile(src, dest);
+          } catch (err) {
+            console.log('test55 create file err');
+
+          }
+        }
+      };
+      
+      console.log('test55 BEFORE copyrecursive sync');
+
+      await copyRecursiveSync('./.webpack/main/native_modules/', './.webpack/main/');
+    }
+  }
 };
 
 module.exports = config;

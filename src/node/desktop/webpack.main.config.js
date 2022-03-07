@@ -4,10 +4,18 @@ const copyWebpackPlugin = new CopyWebpackPlugin({
   patterns: [
     {
       from: path.resolve(__dirname, 'src', 'assets'),
-      to: path.resolve(__dirname, '.webpack/main', 'assets'),
+      to: path.resolve(__dirname, '.webpack', 'main', 'assets'),
     },
+    // {
+    //   from: path.resolve(__dirname, '.webpack', 'main', 'native_modules'),
+    //   to: path.resolve(__dirname, '.webpack', 'main'),
+    // },
   ],
 });
+
+const relocateLoader = require('@vercel/webpack-asset-relocator-loader');
+const webpack = require('webpack');
+const nodeExternals = require('webpack-node-externals');
 
 module.exports = {
   /**
@@ -23,5 +31,18 @@ module.exports = {
     extensions: ['.js', '.ts', '.jsx', '.tsx', '.css', '.json'],
     modules: ['node_modules'],
   },
-  plugins: [copyWebpackPlugin],
+  plugins: [copyWebpackPlugin, 
+    {
+    apply(compiler) {
+      compiler.hooks.compilation.tap(
+        'webpack-asset-relocator-loader',
+        (compilation) => {
+          relocateLoader.initAssetCache(compilation, '');
+        },
+      );
+    },
+  }
+  ],
+  externals: [nodeExternals()],
+  externalsPresets: { node: true },
 };

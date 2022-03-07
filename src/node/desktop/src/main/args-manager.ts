@@ -1,7 +1,10 @@
+/* eslint-disable @typescript-eslint/no-var-requires */
 import { app } from 'electron';
 import { WinstonLogger } from '../core/winston-logger';
-import yargs from 'yargs';
+import yargs from 'yargs/yargs';
 import { hideBin } from 'yargs/helpers';
+// const yargs = require('yargs/yargs');
+// const { hideBin } = require('yargs/helpers');
 
 import { enableDiagnosticsOutput, parseCommandLineLogLevel, setLogger } from '../core/logger';
 import { Application } from './application';
@@ -56,6 +59,7 @@ export class ArgsManager {
   ];
 
   handleHelp(argv: string[]) {
+    // const yargsHelper = yargs();
     const yargsHelper = yargs(hideBin(argv)); //.argv;
 
     this.argsList.forEach((arg) => {
