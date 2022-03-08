@@ -109,7 +109,7 @@ const config = {
       
       console.log('test55 BEFORE copyrecursive sync');
 
-      // await copyRecursiveSync('./.webpack/main/native_modules', './.webpack/main');
+      await copyRecursiveSync('./.webpack/main/native_modules', './.webpack/main');
     }
   }
 };
