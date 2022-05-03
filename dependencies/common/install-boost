@@ -116,7 +116,7 @@ else
    # set up cxxflags
    cxxflags="-fPIC -std=c++11"
    if grep -siq jammy /etc/os-release; then
-      cxxflags="${cxxflags} -DTHREAD_STACK_MIN=$(getconf PTHREAD_STACK_MIN)"
+      cxxflags="${cxxflags} -DPTHREAD_STACK_MIN=$(getconf PTHREAD_STACK_MIN)"
    fi
 
    # plain old build for other platforms
